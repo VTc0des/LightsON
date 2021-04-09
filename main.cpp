@@ -4,7 +4,7 @@
 #include <SPI.h>
 
 /*MOTION DETECTION*/
-#define TAP_THRESHOLD 10
+#define TAP_THRESHOLD 100
 
 /*MOTION DETECTION*/
 bool tapDetected;
@@ -15,7 +15,9 @@ bool turnON = false;
 bool turnOFF = true; 
 
 /*COLOR SENSOR*/
-uint8_t red, green, blue;
+uint8_t red = 255;
+uint8_t green = 255;
+uint8_t blue = 255;
 
 /*LIGHT PWM*/
 int brightness;
@@ -35,19 +37,20 @@ void setup() {
   CircuitPlayground.setAccelTap(2, TAP_THRESHOLD); 
   turnOFF = false;
 
-  attachInterrupt(digitalPinToInterrupt(7), activate, FALLING);
+  //attachInterrupt(digitalPinToInterrupt(CPLAY_LIS3DH_INTERRUPT), activate, FALLING);
 
   //ask user to set the custom color. default is white. 
   setCustom();
 }
 
 void loop() {
-  //adjustB();
+  adjustB();
 }
 
 void activate() {
   if (turnOFF) {
     //toggle state
+    Serial.println("TAP");
     turnOFF = false;
     turnON = true;
     //if LED is off, turn it on
@@ -88,16 +91,16 @@ void setCustom() {
 
 void adjustB() {
   brightness = CircuitPlayground.lightSensor();
-  Serial.print("Sensor:"); Serial.print(brightness); Serial.print(",");
+  //Serial.print("Sensor:"); Serial.print(brightness); Serial.print(",");
   //map the sensor value to a range the LED can accept. 
   brightness = map(brightness, 0, 1023, 0, maxBright);
   //invert the brightness because sensor and pixel should be inversly related
   brightness = map(brightness, 0, maxBright, maxBright, 0);
-  Serial.print("Pixel:"); Serial.println(brightness);
+  //Serial.print("Pixel:"); Serial.println(brightness);
 
   //set the onboard LEDs to the pixel brightness
   CircuitPlayground.setBrightness(brightness);
   for (int i=0; i<10; i++){
-    CircuitPlayground.setPixelColor(i, 0xFF0000);
+    CircuitPlayground.setPixelColor(i, red, green, blue);
   }
 }
