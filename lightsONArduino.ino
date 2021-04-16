@@ -10,14 +10,24 @@
 //default state is off
 bool isON = false;
 bool isOFF = true;
-bool left = false;
-bool right = false;
+//button debounce and state variables
+int leftButton;
+int leftButtonState;
+int lastLeft = LOW;
+
+int rightButton;
+int rightButtonState;
+int lastRight = LOW;
+
+unsigned long lastDebounceTime = 0;
+unsigned long debounceDelay = 50;
+unsigned long buttonTime = 60;
 
 /*COLOR SENSOR*/
 //DEFAULT VALUE IS WHITE
-uint8_t red = 255;
-uint8_t green = 255;
-uint8_t blue = 255;
+uint8_t red;
+uint8_t green;
+uint8_t blue;
 
 /*LIGHT PWM*/
 int brightness;
@@ -28,27 +38,34 @@ void activate();      //function to turn on or off the device
 void setCustom();     //function to set a custom color for the lights
 void adjustMaxB();    //function for user to tap capacitive touch pads to set maximum brightness.
 void button();        //function to turn ON or OFF all circuit playground
+int debounceLeft();  //function to debounce the button input
+int debounceRight();  //function to debounce the button input
 void modusOperandi(); //function to toggle mode from standard to fireplace
-void fireplace();
+void fireplace();     //function to randomly flash red, orange, and yellow LED colors in a random fashion.
 void adjustB();       //function to adjust the brightness of the LED based on room light
+void setDefault();  //function with default values of red, green, and blue pixels.
 void allLEDs();       //function to turn on all the LEDs.
 
 void setup() {
   CircuitPlayground.begin();
   CircuitPlayground.clearPixels();
 
+  //set random value for fireplace flickering
+  randomSeed(CircuitPlayground.lightSensor());
+  
   //turn ON the LEDs the moment the circuit is connected to power.
+  //set default to white
+  setDefault();
+  isON = false;
+  isOFF = true;
   activate();
-
-  //ask user to set the custom color. default is white.
-  setCustom();
 
   /*AccelTap Section - DOES NOT WORK
     //establish tap interrupt
-    //CircuitPlayground.setAccelRange(LIS3DH_RANGE_8_G);
+    CircuitPlayground.setAccelRange(LIS3DH_RANGE_8_G);
     //detect both single and double taps
-    //CircuitPlayground.setAccelTap(2, TAP_THRESHOLD);
-    //attachInterrupt(digitalPinToInterrupt(CPLAY_LIS3DH_INTERRUPT), activate, FALLING);
+    CircuitPlayground.setAccelTap(2, TAP_THRESHOLD);
+    attachInterrupt(digitalPinToInterrupt(CPLAY_LIS3DH_INTERRUPT), activate, FALLING);
   */
 }
 
@@ -64,6 +81,7 @@ void activate() {
     //toggle state
     isON = true;
     isOFF = false;
+    Serial.println("activate");
     //if LEDs are off, turn it on
     allLEDs();
   }
@@ -83,18 +101,17 @@ void setCustom() {
 
   // Now take a color reading (the red, green, blue color components will be
   // returned in the parameters passed in).
-
-  //if not button push wait for 5 seconds, grab the last instance?
   CircuitPlayground.senseColor(red, green, blue);
-
-  //else if button push read immediately.
 
   // Gamma correction makes LED brightness appear more linear
   red = CircuitPlayground.gamma8(red);
   green = CircuitPlayground.gamma8(green);
   blue = CircuitPlayground.gamma8(blue);
 
-  // flash pixels to show it has been read
+  if (red == 0 && green == 0 && blue == 0) {
+    setDefault();
+  }
+  Serial.print(red); Serial.print(","); Serial.print(green); Serial.print(","); Serial.println(blue);
   allLEDs();
 }
 
@@ -108,28 +125,74 @@ void adjustMaxB() {
 }
 
 void button() {
-  if (CircuitPlayground.leftButton())
+  //debounce button input
+  leftButton = debounceLeft();
+  if (leftButton)
   {
     //if left button is pressed then turn ON or OFF the LED
     activate();
   }
-  //if user presses right button right after.
-  if (CircuitPlayground.rightButton())
-  {
-    //if right button is pressed then set a new color for the LEDs.
-    setCustom();
+
+  //if slide switch is in standard mode, read the custom color button
+  if (CircuitPlayground.slideSwitch() == false) {
+    rightButton = debounceRight();
+    if (rightButton)
+    {
+      //if right button is pressed then set a new color for the LEDs.
+      setCustom();
+    }
   }
+}
+
+int debounceLeft() {
+  lastDebounceTime = millis();                            //take most recent system time to ensure the while loop begins
+  while ((millis() - lastDebounceTime) < buttonTime) {
+    int state = CircuitPlayground.leftButton();           //save state to a local variable
+
+    if (state != lastLeft) {                              //update the time if the reading changed.
+      // reset the debouncing timer
+      lastDebounceTime = millis();
+    }
+
+    if ((millis() - lastDebounceTime) > debounceDelay) {  //if enough time has passed, and the state changed, save the last state
+      if (state != leftButtonState) {
+        leftButtonState = state;
+      }
+      break;                                              //break the while loop if this condition is met.
+    }
+    lastLeft = state;                                     //save the button state to compare to
+  }
+  return leftButtonState;
+}
+
+int debounceRight() {
+  lastDebounceTime = millis();                             //take most recent system time to ensure the while loop begins
+  while ((millis() - lastDebounceTime) < buttonTime) {
+    int state = CircuitPlayground.rightButton();           //save state to a local variable
+
+    if (state != lastRight) {                              //update the time if the reading changed.
+      // reset the debouncing timer
+      lastDebounceTime = millis();
+    }
+
+    if ((millis() - lastDebounceTime) > debounceDelay) {   //if enough time has passed, and the state changed, save the last state
+      if (state != rightButtonState) {
+        rightButtonState = state;
+      }
+      break;                                               //break the while loop if this condition is met.
+    }
+    lastRight = state;                                     //save the button state to compare to
+  }
+  return rightButtonState;
 }
 
 void modusOperandi() {
   if (CircuitPlayground.slideSwitch() == true) {
-    CircuitPlayground.clearPixels(); //turn off all LEDs to begin fireplace mode
     fireplace();
   }
   else {
-    //set some flags to say standard. 
+    //do nothing, you are in standard mode. 
   }
-
 }
 
 void fireplace() {
@@ -141,14 +204,20 @@ void fireplace() {
 
 void adjustB() {
   brightness = CircuitPlayground.lightSensor();
-  Serial.print("Sensor:"); Serial.print(brightness); Serial.print(",");
+  //Serial.print("Sensor:"); Serial.print(brightness); Serial.print(",");
   //map the sensor value to a range the LED can accept.
   brightness = map(brightness, 0, 1023, 0, maxBright);
   //invert the brightness because sensor and pixel should be inversly related
   brightness = map(brightness, 0, maxBright, maxBright, 0);
-  Serial.print("Pixel:"); Serial.println(brightness);
+  //Serial.print("Pixel:"); Serial.println(brightness);
 
   allLEDs();
+}
+
+void setDefault() {
+  red = 255;
+  green = 255;
+  blue = 255;
 }
 
 void allLEDs() {
