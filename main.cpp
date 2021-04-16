@@ -3,18 +3,19 @@
 #include <Wire.h>
 #include <SPI.h>
 
-/*MOTION DETECTION*/
+/*MOTION DETECTION
 #define TAP_THRESHOLD 100
-
-/*MOTION DETECTION*/
-bool tapDetected;
+bool tapDetected;*/
 
 /*LED ON/OFF*/
 //default state is off
-bool turnON = false; 
-bool turnOFF = true; 
+bool isON = false; 
+bool isOFF = true; 
+bool left = false;
+bool right = false;
 
 /*COLOR SENSOR*/
+//DEFAULT VALUE IS WHITE
 uint8_t red = 255;
 uint8_t green = 255;
 uint8_t blue = 255;
@@ -23,46 +24,56 @@ uint8_t blue = 255;
 int brightness;
 int maxBright = 255;
 
-void activate(); //function to turn on or off the device
-void setCustom();//function to set a custom color for the lights
-void adjustB();   //function to adjust the brightness of the LED based on room light
+void activate();      //function to turn on or off the device
+void setCustom();     //function to set a custom color for the lights
+void customMaxB();    //function for user to tap capacitive touch pads to set maximum brightness. 
+void button();        //function to turn ON or OFF all circuit playground
+void modusOperandi(); //function to toggle mode from standard to fireplace
+void fireplace();
+void adjustB();       //function to adjust the brightness of the LED based on room light
+void allLEDs();       //function to turn on all the LEDs. 
 
 void setup() {
   CircuitPlayground.begin();
   CircuitPlayground.clearPixels();
   
-  //establish tap interrupt
-  CircuitPlayground.setAccelRange(LIS3DH_RANGE_8_G);
-  //detect both single and double taps
-  CircuitPlayground.setAccelTap(2, TAP_THRESHOLD); 
-  turnOFF = false;
-
-  //attachInterrupt(digitalPinToInterrupt(CPLAY_LIS3DH_INTERRUPT), activate, FALLING);
+  //turn ON the LEDs the moment the circuit is connected to power. 
+  isOFF = true;
+  isON = false;
+  activate();
 
   //ask user to set the custom color. default is white. 
   setCustom();
+
+  /*AccelTap Section
+  //establish tap interrupt
+  //CircuitPlayground.setAccelRange(LIS3DH_RANGE_8_G);
+  //detect both single and double taps
+  //CircuitPlayground.setAccelTap(2, TAP_THRESHOLD); 
+  //attachInterrupt(digitalPinToInterrupt(CPLAY_LIS3DH_INTERRUPT), activate, FALLING);
+  */ 
 }
 
 void loop() {
-  adjustB();
+  button();        //check for button push left - ON/OFF, right - change color
+  modusOperandi(); //check for slide switch status, switch position
+  customMaxB ();   //check for capacitive touch to adjust brightness of the LEDs
+  adjustB();       //main function to auto-adjust LED brightness
 }
 
 void activate() {
-  if (turnOFF) {
+  if (isOFF) {
     //toggle state
-    Serial.println("TAP");
-    turnOFF = false;
-    turnON = true;
+    isON = true;
+    isOFF = false;
     //if LED is off, turn it on
-    for (int i = 0; i < 10; i++){
-    CircuitPlayground.setPixelColor(i, red, green, blue);
-    }
+    allLEDs();
   }
-  else if (turnON) {
+  else if (isON) {
     //toggle state
-    turnOFF = true;
-    turnON = false;
-    //if LED is off, turn it on
+    isOFF = true;
+    isON = false;
+    //if LED is on, turn it off
     CircuitPlayground.clearPixels();
   }
 }
@@ -74,7 +85,11 @@ void setCustom() {
 
   // Now take a color reading (the red, green, blue color components will be
   // returned in the parameters passed in).
+  
+  //if not button push wait for 5 seconds, grab the last instance?
   CircuitPlayground.senseColor(red, green, blue);
+
+  //else if button push read immediately. 
 
   // Gamma correction makes LED brightness appear more linear
   red = CircuitPlayground.gamma8(red);
@@ -82,11 +97,47 @@ void setCustom() {
   blue = CircuitPlayground.gamma8(blue);
 
   // flash pixels to show it has been read
-  for (int i=0; i<10; ++i) {
-    CircuitPlayground.strip.setPixelColor(i, red, green, blue);
-  }
-
+  allLEDs();
   CircuitPlayground.clearPixels();
+}
+
+void customMaxB() {
+  //if slide switch is negative AND input is detected on EITHER touch pad
+    //include serial print statements 
+    //if input is read from X capacitive touch pad then increase maximum brightness. read 1 seconds for input
+    //if input is read from X capacitive touch pad then decrease maximum brightness. read 1 seconds for input. 
+    //if input is not recieved then assume this is the brightness the user wants. 
+  //else do nothing. 
+}
+
+void button() {
+  left = CircuitPlayground.leftButton();
+  right = CircuitPlayground.rightButton();
+
+  if (left)
+  {
+    //if left button is pressed then turn ON or OFF the LED
+    activate();
+  }
+  //if user presses right button right after. 
+  if (CircuitPlayground.rightButton())
+  {
+    //if right button is pressed then set a new color for the LEDs. 
+    setCustom();
+  }
+}
+
+void modusOperandi() {
+  //if slide switch is LEFT
+    //keep on standard mode 
+  //else if slide switch is RIGHT
+    //activate fire place mode
+
+}
+
+void fireplace() {
+  //random flickering of Lights. 
+  //do not use allLEDs()
 }
 
 void adjustB() {
@@ -100,6 +151,10 @@ void adjustB() {
 
   //set the onboard LEDs to the pixel brightness
   CircuitPlayground.setBrightness(brightness);
+  allLEDs();
+}
+
+void allLEDs() {
   for (int i=0; i<10; i++){
     CircuitPlayground.setPixelColor(i, red, green, blue);
   }
