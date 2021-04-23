@@ -1,6 +1,6 @@
 # LightsON 
 ## Introduction
-Illumination is the name of the game when it comes to ZOOM calls. Look bright while you're being bright with LightsON a portable alternative to standing ring lights that is designed to automatically adjust the illumination on your face with power efficient LEDs to supplement your room’s natural light. As the light in your room waxes and wanes, LightsON will too, thus, ensuring there is an even distribution of light on you at all times. 
+Illumination is the name of the game when it comes to ZOOM calls. Look bright while you're being bright with LightsON - the portable alternative to standing ring lights that is designed to automatically adjust the illumination on your face with power efficient LEDs to supplement your room’s natural light. As the light in your room waxes and wanes, LightsON will too, thus, ensuring there is an even distribution of light on you at all times. 
 
 LightsON is a Circuit Playground enabled, USB powered, energy efficient device that comes in two modes: standard and fireplace. Standard mode operates with the default white light or custom color illumination while fireplace mode flickers the LEDs with red, yellow or orange lights to mimic a fireplace. Use fireplace mode to lighten the mood during virtual movie or game nights or to spice up boring conference calls. 
 
