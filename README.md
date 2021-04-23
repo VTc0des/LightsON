@@ -12,7 +12,9 @@ The primary author for all the code responsible for device functionality is **Va
 Credit goes to the following people for specific LightsON functionality:
 Credit goes to the following people for specific LightsON functionality:
 > 'fireplace' mode: adapted from Brithday_Candles.ino, originally developed by **Tony DiCola**
+> 
 > Color sensor: adapted from color_sense.ino, originally developed by **Limor Fried and Tony DiCola**
+> 
 > Button Debounce: adapted from debounce.ino, most recently modified by **Arturo Guadalupi**
 
 ## Important Intructions
