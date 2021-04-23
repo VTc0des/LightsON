@@ -5,8 +5,9 @@
 /*LED ON/OFF*/
 //default state is off
 bool isON = false;
-bool isOFF = true;
-bool inSetup = false;
+bool isOFF = false;
+bool fpmode = false;
+
 //button debounce and state variables
 int leftButton;
 int leftButtonState;
@@ -18,7 +19,7 @@ int lastRight = LOW;
 
 unsigned long lastDebounceTime = 0;
 unsigned long debounceDelay = 50;
-unsigned long buttonTime = 60;
+unsigned long buttonTime = 100;
 
 /*COLOR SENSOR*/
 //DEFAULT VALUE IS WHITE
@@ -29,10 +30,11 @@ uint8_t blue;
 /*LIGHT PWM*/
 int brightness;
 int maxBright = 255;
+int touchThreshold = 200;
 
 /*FIRE PLACE MODE*/
-#define BREATH_THRESHOLD  92
-#define FLAME_LIFE_MS     200
+#define BREATH_THRESHOLD  92 //92
+#define FLAME_LIFE_MS     50 //200
 #define FLAME_HUE         35
 #define LIT_CANDLES       10
 
@@ -88,7 +90,7 @@ void setup() {
   Serial.begin(9600);
   CircuitPlayground.begin();
   CircuitPlayground.clearPixels();
-  inSetup = true;
+
   //set random value for fireplace flickering
   randomSeed(CircuitPlayground.lightSensor());
 
@@ -105,18 +107,25 @@ void setup() {
   //set default LED color to white
   setDefault();
 
-  //turn ON the LEDs the moment the circuit is connected to power.
-  activate();
 
   //set flags to turn off the LEDs with a button push.
   isON = true;
   isOFF = false;
+  fpmode = false;
+
+  //turn ON the LEDs the moment the circuit is connected to power.
+  if (CircuitPlayground.slideSwitch() == false) {
+    activate();
+  }
+  else if (CircuitPlayground.slideSwitch() == true) {
+    fireplace();
+  }
 }
 
 void loop() {
   button();        //check for button push left - ON/OFF, right - change color
-  //  modusOperandi(); //check for slide switch status, switch position
-  //  adjustMaxB ();   //check for capacitive touch to adjust brightness of the LEDs
+  modusOperandi(); //check for slide switch status, switch position
+  adjustMaxB ();   //check for capacitive touch to adjust brightness of the LEDs
   adjustB();       //main function to auto-adjust LED brightness
 }
 
@@ -147,7 +156,7 @@ void setCustom() {
   if (red == 0 && green == 0 && blue == 0) {
     setDefault();
   }
-  Serial.print(red); Serial.print(","); Serial.print(green); Serial.print(","); Serial.println(blue);
+  //  Serial.print(red); Serial.print(","); Serial.print(green); Serial.print(","); Serial.println(blue);
   allLEDs();
 }
 
@@ -158,6 +167,24 @@ void adjustMaxB() {
   //if input is read from X capacitive touch pad then decrease maximum brightness. read 1 seconds for input.
   //if input is not recieved then assume this is the brightness the user wants.
   //else do nothing.
+  if (CircuitPlayground.slideSwitch() == false)
+  {
+    if (CircuitPlayground.readCap(2) > touchThreshold) {
+      if (maxBright > 5) {
+        maxBright -= 10;
+        Serial.print("max brightness capped at: ");
+        Serial.println(maxBright);
+      }
+    }
+
+    else if (CircuitPlayground.readCap(9) > touchThreshold) {
+      if (maxBright < 255) {
+        maxBright += 10;
+        Serial.print("max brightness capped at: ");
+        Serial.println(maxBright);
+      }
+    }
+  }
 }
 
 void button() {
@@ -185,7 +212,8 @@ void button() {
   }
 
   //if slide switch is in standard mode, read the custom color button
-  if (CircuitPlayground.slideSwitch() == false) {
+  if (CircuitPlayground.slideSwitch() == false && isON) {
+    fpmode = false;
     if (rightButton)
     {
       //if right button is pressed then set a new color for the LEDs.
@@ -243,6 +271,7 @@ void modusOperandi() {
 }
 
 void fireplace() {
+  fpmode = true;
   waitBreath(1000);
 }
 
@@ -255,7 +284,7 @@ void adjustB() {
   brightness = map(brightness, 0, maxBright, maxBright, 0);
   //Serial.print("Pixel:"); Serial.println(brightness);
 
-  if (isON) {
+  if (isON && (fpmode == false)) {
     allLEDs();
   }
 }
@@ -318,7 +347,7 @@ float measurePeak(uint32_t milliseconds) {
   while ((current - start) < milliseconds) {
     // Inside the loop check the sound pressure level 10ms at a time
     float sample = CircuitPlayground.mic.soundPressureLevel(10);
-    Serial.println(sample);
+    //    Serial.println(sample);
     soundMax = max(sample, soundMax);
     // Be sure to drive the NeoPixel animation too.
     animatePixels(current);
