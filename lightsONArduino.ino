@@ -103,7 +103,6 @@ void setup() {
     phases[i] = random(1000) / 1000.0 * 2.0 * PI;
   }
 
-
   //set default LED color to white
   setDefault();
 
