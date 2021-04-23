@@ -3,12 +3,11 @@
 #include <SPI.h>
 
 /*LED ON/OFF*/
-//default state is off
 bool isON = false;
 bool isOFF = false;
 bool fpmode = false;
 
-//button debounce and state variables
+/*button debounce and state variables*/
 int leftButton;
 int leftButtonState;
 int lastLeft = LOW;
@@ -22,7 +21,6 @@ unsigned long debounceDelay = 50;
 unsigned long buttonTime = 100;
 
 /*COLOR SENSOR*/
-//DEFAULT VALUE IS WHITE
 uint8_t red;
 uint8_t green;
 uint8_t blue;
@@ -33,11 +31,12 @@ int maxBright = 255;
 int touchThreshold = 200;
 
 /*FIRE PLACE MODE*/
-#define BREATH_THRESHOLD  92 //92
-#define FLAME_LIFE_MS     50 //200
-#define FLAME_HUE         35
+#define BREATH_THRESHOLD  92 //threshold for the audio sensor to determine if fireplace mode should be turned off 
+#define FLAME_LIFE_MS     50 //duration between successive pixels turning off
+#define FLAME_HUE         35 //optimal hue 
 #define LIT_CANDLES       10
 
+//gamma correction values
 const uint8_t PROGMEM gamma8[] = {
   0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
   0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  1,  1,  1,  1,
@@ -77,6 +76,8 @@ void fireplace();     //function to randomly flash red, orange, and yellow LED c
 void adjustB();       //function to adjust the brightness of the LED based on room light
 void setDefault();    //function with default values of red, green, and blue pixels.
 void allLEDs();       //function to turn on all the LEDs.
+
+//functions for fireplace mode. these are adapted from birthday_candles.ino
 void waitBreath(uint32_t milliseconds);
 float measurePeak(uint32_t milliseconds);
 void animatePixels(uint32_t current);
@@ -91,6 +92,14 @@ void setup() {
   CircuitPlayground.begin();
   CircuitPlayground.clearPixels();
 
+  //set default LED color to white
+  setDefault();
+
+  //set flags to turn off the LEDs with a button push.
+  isON = true;
+  isOFF = false;
+  fpmode = false;
+
   //set random value for fireplace flickering
   randomSeed(CircuitPlayground.lightSensor());
 
@@ -103,16 +112,7 @@ void setup() {
     phases[i] = random(1000) / 1000.0 * 2.0 * PI;
   }
 
-  //set default LED color to white
-  setDefault();
-
-
-  //set flags to turn off the LEDs with a button push.
-  isON = true;
-  isOFF = false;
-  fpmode = false;
-
-  //turn ON the LEDs the moment the circuit is connected to power.
+  //turn ON the LEDs in either standard or fireplace modes depending on the switch position
   if (CircuitPlayground.slideSwitch() == false) {
     activate();
   }
@@ -123,23 +123,23 @@ void setup() {
 
 void loop() {
   button();        //check for button push left - ON/OFF, right - change color
-  modusOperandi(); //check for slide switch status, switch position
-  adjustMaxB ();   //check for capacitive touch to adjust brightness of the LEDs
+  modusOperandi(); //check for slide switch status, switch position to set standard or fireplace modes
+  adjustMaxB ();   //check for capacitive touch to adjust maximum brightness of the LEDs
   adjustB();       //main function to auto-adjust LED brightness
 }
 
 void activate() {
-  Serial.println("LEDs activated");
+  //  Serial.println("LEDs activated");
   allLEDs();
 }
 
 void deactivate() {
-  Serial.println("LEDs deactivated");
+  //  Serial.println("LEDs deactivated");
   CircuitPlayground.clearPixels();
 }
 
 void setCustom() {
-  Serial.println("Place object near sensor to read color");
+  Serial.println("Place object flush against the light sensor to determine color");
 
   CircuitPlayground.clearPixels();
 
@@ -160,27 +160,24 @@ void setCustom() {
 }
 
 void adjustMaxB() {
-  //if slide switch is negative AND input is detected on EITHER touch pad
-  //include serial print statements
-  //if input is read from X capacitive touch pad then increase maximum brightness. read 1 seconds for input
-  //if input is read from X capacitive touch pad then decrease maximum brightness. read 1 seconds for input.
-  //if input is not recieved then assume this is the brightness the user wants.
-  //else do nothing.
+  //adjust maximum brightness only in standard mode
   if (CircuitPlayground.slideSwitch() == false)
   {
     if (CircuitPlayground.readCap(2) > touchThreshold) {
       if (maxBright > 5) {
+        //decrement brightness until maxBright is at 5. will not fully turn off the LEDs at 5.
         maxBright -= 10;
-        Serial.print("max brightness capped at: ");
-        Serial.println(maxBright);
+        //        Serial.print("max brightness capped at: ");
+        //        Serial.println(maxBright);
       }
     }
 
     else if (CircuitPlayground.readCap(9) > touchThreshold) {
       if (maxBright < 255) {
+        //increment brightness until maxBright is at 255. will not go beyond maximum analog value of 255.
         maxBright += 10;
-        Serial.print("max brightness capped at: ");
-        Serial.println(maxBright);
+        //        Serial.print("max brightness capped at: ");
+        //        Serial.println(maxBright);
       }
     }
   }
@@ -193,16 +190,16 @@ void button() {
 
   //if the left button is pushed, check the status of the LED, if it is off, then turn it on then if it is on turn it off.
   if (leftButton) {
-    Serial.println("Button push detected!!!");
+    //    Serial.println("Button push detected!!!");
     if (isOFF) {
       //toggle state
-      Serial.println("Going to ON mode");
+      //      Serial.println("Going to ON mode");
       isON = true;
       isOFF = false;
       activate();
     }
     else if (isON) {
-      Serial.println("Going to OFF mode");
+      //      Serial.println("Going to OFF mode");
       //toggle state
       isOFF = true;
       isON = false;
